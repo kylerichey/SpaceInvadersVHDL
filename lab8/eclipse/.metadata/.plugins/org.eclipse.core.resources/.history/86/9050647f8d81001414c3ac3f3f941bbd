@@ -1,0 +1,254 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "globals.h"
+
+unsigned int * framePointer;
+
+int* bunker_baseBlock[5] = { baseBlock, baseBlock_1, baseBlock_2, baseBlock_3,
+		blank_block };
+int* bunker_baseBlockLeft[5] = { baseBlockLeft, baseBlockLeft_1,
+		baseBlockLeft_2, baseBlockLeft_3, blank_block };
+int* bunker_baseBlockRight[5] = { baseBlockRight, baseBlockRight_1,
+		baseBlockRight_2, baseBlockRight_3, blank_block };
+int* bunker_baseBlockLeftUnder[5] = { baseBlockLeftUnder, baseBlockLeftUnder_1,
+		baseBlockLeftUnder_2, baseBlockLeftUnder_3, blank_block };
+int* bunker_baseBlockRightUnder[5] = { baseBlockRightUnder,
+		baseBlockRightUnder_1, baseBlockRightUnder_2, baseBlockRightUnder_3,
+		blank_block};
+
+alien_bullet bullets[4];
+bunker bunkers[4];
+
+void draw(int x, int y, int * mask, int width, int height, int color)
+{
+	int row, column;
+	for (row = 0; row < height; row++) {
+		for (column = 0; column < width; column++) {
+			if ((mask[row] & (1 << (width - 1 - column)))) {
+				framePointer[(row + y) * 640 + column + x] = color;
+			}
+		}
+	}
+}
+
+void redraw(unsigned int* framePointer)
+{
+	drawAliens();
+	drawHUD();
+	drawBullets(0x00FF0000);
+	draw_bunker(0x0000FF00);
+	draw_tank(0x0000FF00);
+
+}
+
+void drawHUD()
+{
+	//draw score
+	int x = 10;
+	draw(x, 10, S, 12, 12, 0x0000FF00); //s
+	x += 13;
+	draw(x, 10, C, 12, 12, 0x0000FF00); //c
+	x += 13;
+	draw(x, 10, O, 12, 12, 0x0000FF00); //o
+	x += 13;
+	draw(x, 10, R, 12, 12, 0x0000FF00); //r
+	x += 13;
+	draw(x, 10, E, 12, 12, 0x0000FF00); //e
+	x += 13;
+	updateScore(0);
+
+	// lives
+	x = 400;
+	draw(x, 10, L, 12, 12, 0x0000FF00); //l
+	x += 12;
+	draw(x, 10, I, 12, 12, 0x0000FF00); //i
+	x += 12;
+	draw(x, 10, V, 12, 12, 0x0000FF00); //v
+	x += 13;
+	draw(x, 10, E, 12, 12, 0x0000FF00); //e
+	x += 13;
+	draw(x, 10, S, 12, 12, 0x0000FF00); //s
+	x += 21;
+	draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank1
+	x += 40;
+	draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank2
+	x += 40;
+	draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank3
+
+	int y;
+	for (y = 0; y < 640; y++)
+	{
+		draw (y, 475, line, 1, 1, 0xFF00000);
+				//draw(x, 200, symbol, 32, 32, 0xFFFFFFF);
+	}
+}
+
+void drawAliens() {
+	draw_aliens(0xFFFFFFFF);
+}
+
+void draw_aliens(int color) {
+
+	int col, row = 0;
+	int x = alien_block.x;
+	int y = alien_block.y;
+
+	int* top = alien_block.state ? topInAlienSymbol : topOutAlienSymbol;
+	int* mid = alien_block.state ? midInAlienSymbol : midOutAlienSymbol;
+	int* bot = alien_block.state ? buttInAlienSymbol : buttOutAlienSymbol;
+
+	for (row = 0; row < 5; row++)
+	{
+		x = alien_block.x;
+
+		for (col = 0; col < 11; col++)
+		{
+			if (alien_life[row * 11 + col] == 1)
+			{
+				if (row == 0)
+					draw(x, y, top, ALIEN_WIDTH, ALIEN_HEIGHT, color);
+				else if (row == 1 || row == 2)
+					draw(x, y, mid, ALIEN_WIDTH, ALIEN_HEIGHT, color);
+				else if (row == 3 || row == 4)
+					draw(x, y, bot, ALIEN_WIDTH, ALIEN_HEIGHT, color);
+			}
+
+
+			x += ALIEN_WIDTH;
+		}
+		y += ALIEN_HEIGHT + ALIEN_Y_GAP;
+	}
+}
+
+void clearAliens() {
+
+	int i, j = 0;
+	int x = alien_block.x;
+	int y = alien_block.y;
+
+	for (j = 0; j < 5; j++) {
+		x = alien_block.x;
+
+		for (i = 0; i < 11; i++)
+		{
+			if (alien_life[j*11 +i])
+			{
+
+				draw(x, y, blankAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0x00000000);
+				if (alien_life[j*11 +i]==2)
+				{
+					alien_life[j*11 +i]=0;
+				}
+			}
+			x += ALIEN_WIDTH;
+		}
+		y += ALIEN_HEIGHT + ALIEN_Y_GAP;
+	}
+}
+
+void draw_tank(int color) {
+	draw(tank.x, tank.y, tankSymbol, TANK_WIDTH, TANK_HEIGHT, color);
+}
+
+void drawBullets(int color) {
+	draw(tank_bullet.x, tank_bullet.y, tankBulletSymbol, 8, 8, color);
+
+	int bullet_index;
+	for (bullet_index = 0; bullet_index < 4; bullet_index++) {
+		if (bullets[bullet_index].type) {
+			if (bullets[bullet_index].exists)
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y,
+						alien_missle_states[bullets[bullet_index].state], 8, 8,
+						color);
+			else
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y,
+						blankBullet, 8, 8, 0x00000000);
+		} else {
+			if (bullets[bullet_index].exists)
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y,
+						alien_bullet_states[bullets[bullet_index].state], 8, 8,
+						color);
+			else
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y,
+						blankBullet, 8, 8, 0x00000000);
+		}
+	}
+}
+
+void erode_bunkers(int bunker_number) {
+	draw_bunker(0x00000000);
+	//clear block
+	int block_index;
+	for (block_index = 0; block_index < 10; block_index++) {
+		bunkers[bunker_number].erosion_state[block_index]++;
+		if (bunkers[bunker_number].erosion_state[block_index] > 4)
+			bunkers[bunker_number].erosion_state[block_index] = 4;
+	}
+
+	draw_bunker(0x0000FF00);
+	//print erodeblock
+
+
+}
+
+void draw_bunker(int color) {
+	int bunker_index, block_index = 0;
+
+	for (bunker_index = 0; bunker_index <= 3; bunker_index++) {
+		int count = 0;
+		int x_offset = 0;
+		int y_offset = 0;
+
+		for (block_index = 0; block_index < 10; block_index++) {
+			int* symbol;
+
+			if (count > 3) {
+				x_offset = 0;
+				y_offset += 12;
+				count = 0;
+			}
+
+			if (block_index == 0) {
+				symbol = bunker_baseBlockLeft[bunkers[bunker_index].erosion_state[block_index]];
+			} else if (block_index == 3) {
+				symbol = bunker_baseBlockRight[bunkers[bunker_index].erosion_state[block_index]];
+			} else if (block_index == 5) {
+				symbol = bunker_baseBlockLeftUnder[bunkers[bunker_index].erosion_state[block_index]];
+			} else if (block_index == 6) {
+				symbol = bunker_baseBlockRightUnder[bunkers[bunker_index].erosion_state[block_index]];
+			} else {
+				symbol = bunker_baseBlock[bunkers[bunker_index].erosion_state[block_index]];
+				if (block_index == 9)
+					x_offset = 36;
+			}
+
+			draw(bunkers[bunker_index].pos.x + x_offset, bunkers[bunker_index].pos.y + y_offset, symbol, 12, 12, color);
+			if (count <= 3) {
+				x_offset += 12;
+				count++;
+			}
+
+		}
+	}
+}
+
+void drawBlock(int bunker_index, int block_index, int x_pos, int y_pos, int color)
+{
+	int* symbol;
+	if (block_index == 0) {
+		symbol = bunker_baseBlockLeft[bunkers[bunker_index].erosion_state[block_index]];
+	}
+	else if (block_index == 3) {
+		symbol = bunker_baseBlockRight[bunkers[bunker_index].erosion_state[block_index]];
+	}
+	else if (block_index == 5) {
+		symbol = bunker_baseBlockLeftUnder[bunkers[bunker_index].erosion_state[block_index]];
+	}
+	else if (block_index == 6) {
+		symbol = bunker_baseBlockRightUnder[bunkers[bunker_index].erosion_state[block_index]];
+	}
+	else {
+		symbol = bunker_baseBlock[bunkers[bunker_index].erosion_state[block_index]];
+	}
+	draw(x_pos, y_pos, symbol, 12, 12, color);
+}

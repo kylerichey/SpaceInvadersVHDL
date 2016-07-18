@@ -1,0 +1,12 @@
+run
+-opt_level 2
+-opt_mode speed
+-ifmt mixed
+-ifn "C:\NEK\lab8\SpaceInvaderTestHW2\pcores\fraps_v1_00_b\devl\synthesis\fraps_xst.prj"
+-top fraps
+-p virtex6
+-ofn "C:\NEK\lab8\SpaceInvaderTestHW2\pcores\fraps_v1_00_b\devl\synthesis\fraps_xst.ngc"
+-iobuf NO
+-rtlview YES
+-hierarchy_separator /
+-work_lib fraps_v1_00_b

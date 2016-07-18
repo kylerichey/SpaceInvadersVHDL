@@ -1,0 +1,48 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+################################################################################
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../src/sounds/invader1.c \
+../src/sounds/invader2.c \
+../src/sounds/invader3.c \
+../src/sounds/invader4.c \
+../src/sounds/invaderkilled.c \
+../src/sounds/silent.c \
+../src/sounds/tank.c \
+../src/sounds/tank_explosion.c \
+../src/sounds/ufo_highpitch.c 
+
+OBJS += \
+./src/sounds/invader1.o \
+./src/sounds/invader2.o \
+./src/sounds/invader3.o \
+./src/sounds/invader4.o \
+./src/sounds/invaderkilled.o \
+./src/sounds/silent.o \
+./src/sounds/tank.o \
+./src/sounds/tank_explosion.o \
+./src/sounds/ufo_highpitch.o 
+
+C_DEPS += \
+./src/sounds/invader1.d \
+./src/sounds/invader2.d \
+./src/sounds/invader3.d \
+./src/sounds/invader4.d \
+./src/sounds/invaderkilled.d \
+./src/sounds/silent.d \
+./src/sounds/tank.d \
+./src/sounds/tank_explosion.d \
+./src/sounds/ufo_highpitch.d 
+
+
+# Each subdirectory must supply rules for building sources it contributes
+src/sounds/%.o: ../src/sounds/%.c
+	@echo Building file: $<
+	@echo Invoking: MicroBlaze gcc compiler
+	mb-gcc -Wall -O3 -g3 -c -fmessage-length=0 -I../../hello_world_bsp_0/microblaze_0/include -mlittle-endian -mxl-barrel-shift -mxl-pattern-compare -mcpu=v8.20.b -mno-xl-soft-mul -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o"$@" "$<"
+	@echo Finished building: $<
+	@echo ' '
+
+

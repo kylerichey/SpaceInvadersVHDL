@@ -1,0 +1,10 @@
+-batch 
+-create fraps 
+-ver 1.00.b 
+-dir "C:\NEK\lab8\SpaceInvaderTestHW2" 
+-lang vhdl 
+-bus axi4lite ms 
+-reg 4 
+-xps 
+-ise 
+-driver 

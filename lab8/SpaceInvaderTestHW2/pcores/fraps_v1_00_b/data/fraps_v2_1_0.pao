@@ -1,0 +1,11 @@
+##############################################################################
+## Filename:          C:/NEK/lab8/SpaceInvaderTestHW2/pcores/fraps_v1_00_b/data/fraps_v2_1_0.pao
+## Description:       Peripheral Analysis Order
+## Date:              Tue Dec 09 17:21:21 2014 (by Create and Import Peripheral Wizard)
+##############################################################################
+
+lib proc_common_v3_00_a  all 
+lib axi_lite_ipif_v1_01_a  all 
+lib axi_master_lite_v1_00_a  all 
+lib fraps_v1_00_b user_logic vhdl
+lib fraps_v1_00_b fraps vhdl

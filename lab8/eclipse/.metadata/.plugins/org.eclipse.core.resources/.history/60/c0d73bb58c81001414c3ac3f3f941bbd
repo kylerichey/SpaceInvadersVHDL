@@ -1,0 +1,410 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "bitmask.h"
+#include "globals.h"
+
+//int alien_x_pos = -32;
+//int alien_y_pos = -32;
+
+int* alien_bullet_states[4] = { alienBulletSymbolButt, alienBulletSymbolMid,
+		alienBulletSymbolTop, alienBulletSymbolMid };
+int* alien_missle_states[4] = { alienBulletSquigTop, alienBulletSquigMid_Right,
+		alienBulletSquigButt, alienBulletSquigMid_Left };
+
+unsigned int * framePointer;
+short alien_life[55];
+short alien_columns[11];
+direction alien_direction;
+position tank_bullet;
+short tank_bullet_exists;
+alien_bullet bullets[4];
+int right_alien_block_edge, left_alien_block_edge;
+
+position tank;
+block alien_block;
+UFO ufo;
+
+bunker bunkers[4];
+
+int score = 0;
+int lives;
+int tank_hit;
+int * tankDeath_symbol;
+int tank_dead_count;
+int ufoDie;
+int remaining_aliens;
+int tank_bullet_sound_already_played;
+
+void init(unsigned int * framePointer_in)
+{
+	// GLOBAL VARIABLE INITIALIZATIONS
+	tank.x = 200;
+	tank.y = 450;
+
+	alien_delay_speed= 100;
+
+	alien_block.x = 8;
+	alien_block.y = 50;
+	alien_direction = RIGHT;
+
+	int bunker_index = 0;
+	int bunker_x_pos = 60;
+	left_alien_block_edge = 8;
+	right_alien_block_edge = 280;
+
+	for (bunker_index = 0; bunker_index < 4; bunker_index++)
+	{
+		bunkers[bunker_index].pos.x = bunker_x_pos;
+		bunkers[bunker_index].pos.y = 350;
+		bunkers[bunker_index].exists = 1;
+		int block_index;
+		for (block_index = 0; block_index < 10; block_index++)
+		{
+			bunkers[bunker_index].erosion_state[block_index] = 0;
+		}
+		bunkers[bunker_index].num_blocks_remaining = 10;
+		bunker_x_pos += 148;
+	}
+
+	framePointer = framePointer_in;
+	int row, column;
+	for (row = 0; row < 480; row++)
+	{
+		for (column = 0; column < 640; column++) {
+
+			framePointer[row * 640 + column] = 0x00000000;
+
+		}
+	}
+	int y, x = 0;
+	for (y = 0; y < 5; y++)
+	{
+		for (x = 0; x < 11; x++) {
+			alien_life[y * 11 + x] = 1;
+		}
+	}
+
+	for(column = 0; column < 11; column++)
+	{
+		alien_columns[column] = 5;
+	}
+
+	tank_bullet.x = 6969;
+	tank_bullet.y = 6969;
+
+	for(y = 0; y < 4; y++)
+	{
+		bullets[y].exists = 0;
+		bullets[y].pos.x = 6969;
+		bullets[y].pos.y = 6969;
+		bullets[y].state = 0;
+		bullets[y].type = 69;
+	}
+
+
+
+	if (remaining_aliens)
+	{
+		score = 0;
+
+	}
+	lives = 3;
+	//int * point =0;
+
+	for (y= 0; y<640; y++)
+	{
+		draw (y, 475, line, 1, 1, 0xFF00000);
+				//draw(x, 200, symbol, 32, 32, 0xFFFFFFF);
+	}
+
+
+
+	remaining_aliens = 55;
+	//gameOver =0;
+	tank_hit = 0;
+	tank_dead_count = 0;
+	tankDeath_symbol = tankDeath_1;
+	ufo.ufo_direction = RIGHT;
+	ufoDie = 0;
+	//alien_life[2][1] = 0;
+	draw_aliens(0xFFFFFFFF);
+	draw_tank(0x0000FF00);
+	draw_bunker(0x0000FF00);
+
+	drawHUD();
+}
+
+void play_game_over()
+{
+
+
+	int x = 175;
+					int i = 0;
+					int * symbol;
+					for (i = 0; i < 9; i++) {
+
+						switch (i) {
+						case 0:
+							symbol = GO_G;
+							break;
+						case 1:
+							symbol = GO_A;
+							break;
+						case 2:
+							symbol = GO_M;
+							break;
+						case 3:
+							symbol = GO_E;
+							break;
+						case 4:
+							symbol = GO_Blank;
+							break;
+						case 5:
+							symbol = GO_O;
+							break;
+						case 6:
+							symbol = GO_V;
+							break;
+						case 7:
+							symbol = GO_E;
+							break;
+						case 8:
+							symbol = GO_R;
+							break;
+						default:
+							symbol = GO_G;
+
+						}
+
+						draw(x, 200, symbol, 32, 32, 0xFFFFFFF);
+						x += 35;
+					}
+
+					gameOver = 1;
+}
+
+
+
+void play_game_win()
+{
+
+
+	int x = 250;
+					int i = 0;
+					int * symbol;
+					for (i = 0; i < 3; i++) {
+
+						switch (i) {
+						case 0:
+							symbol = GO_W;
+							break;
+						case 1:
+							symbol = GO_I;
+							break;
+						case 2:
+							symbol = GO_N;
+							break;
+
+						default:
+							symbol = GO_G;
+
+						}
+
+						draw(x, 200, symbol, 32, 32, 0xFFFFFFF);
+						x += 35;
+					}
+
+					gameOver = 1;
+}
+
+
+void updateLives() {
+	int x = 471;
+	if (lives == 2) {
+
+		//draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank1
+		x += 40;
+		//draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank2
+		x += 40;
+		draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x00000000); //tank3
+
+	}
+
+	if (lives == 1) {
+
+		//draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x0000FF00); //tank1
+		x += 40;
+		draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x00000000); //tank2
+
+
+	}
+
+	if (lives == 0) {
+		draw(x, 7, tankSymbol, TANK_WIDTH, TANK_HEIGHT, 0x00000000); //tank1
+	}
+
+}
+void updateScore(int newscore) {
+	int numberToSymbol = 0;
+	int x = 88;
+	score += newscore;
+	int * Symbol;
+	int i = 0;
+	// Iterates through digits
+
+	if (score > 99999) {
+		score = 0;
+	}
+
+	for (i = 0; i < 5; i++) {
+
+		switch (i) {
+		case 0:
+			numberToSymbol = score / 10000;
+			break;
+		case 1:
+			numberToSymbol = (score % 10000) / 1000;
+			break;
+		case 2:
+			numberToSymbol = (score % 1000) / 100;
+			break;
+		case 3:
+			numberToSymbol = (score % 100) / 10;
+			break;
+		case 4:
+			numberToSymbol = score % 10;
+			break;
+		default:
+			numberToSymbol = 0;
+			break;
+
+		}
+
+		switch (numberToSymbol) {
+		case 0:
+			Symbol = numb_0;
+			break;
+		case 1:
+			Symbol = numb_1;
+			break;
+		case 2:
+			Symbol = numb_2;
+			break;
+		case 3:
+			Symbol = numb_3;
+			break;
+		case 4:
+			Symbol = numb_4;
+			break;
+		case 5:
+			Symbol = numb_5;
+			break;
+		case 6:
+			Symbol = numb_6;
+			break;
+		case 7:
+			Symbol = numb_7;
+			break;
+		case 8:
+			Symbol = numb_8;
+			break;
+		case 9:
+			Symbol = numb_9;
+			break;
+		default:
+			Symbol = numb_0;
+			break;
+		}
+
+		draw(x, 10, numb_blank, 12, 12, 0x00000000);
+		draw(x, 10, Symbol, 12, 12, 0x0000FF00);
+		x += 13;
+	}
+
+}
+
+void killAlien(int alien) {
+	draw(alien_block.x + (alien % 11) * WORD_WIDTH,
+			alien_block.y + (alien / 11) * (ALIEN_HEIGHT + ALIEN_Y_GAP),
+			topOutAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0x00000000);
+}
+
+void shootTankBullet() {
+	if (!tank_bullet_exists) {
+		tank_bullet_sound_already_played=1;
+		tank_bullet_exists = 1;
+		tank_bullet.x = tank.x + 11;
+		tank_bullet.y = tank.y - 8;
+		draw(tank_bullet.x, tank_bullet.y, tankBulletSymbol, 8, 8, 0x00FF0000);
+	}
+}
+
+void shootAlienBullet()
+{
+	// For which alien bullet comes out of
+	int random;
+	do
+	{
+		random = rand() % 11;
+	}
+	while(!alien_columns[random]);
+	// For which bullet type
+	int random2 = rand() % 4;
+	int bullet_index;
+	for (bullet_index = 0; bullet_index < 4; bullet_index++)
+	{
+		if (!bullets[bullet_index].exists)
+		{
+			// get random number from 0-10
+			bullets[bullet_index].exists = 1;
+			bullets[bullet_index].pos.x = alien_block.x + (ALIEN_WIDTH * random) + 16;
+			int new_y = alien_block.y + 5 * (ALIEN_Y_GAP + ALIEN_HEIGHT);
+
+			int row;
+			short found = 0;
+			for(row = 4; row >= 0; row--)
+			{
+				if(!alien_life[row*11 + random] && !found)
+					new_y -= (ALIEN_Y_GAP + ALIEN_HEIGHT);
+				else
+					found = 1;
+			}
+
+			bullets[bullet_index].pos.y = new_y;
+
+			// shoot squiggle bullet
+			if (random2 == 3)
+			{
+				bullets[bullet_index].type = 1;
+				bullets[bullet_index].state = 0;
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y, alien_missle_states[bullets[bullet_index].state], 8, 8, 0x00FF0000);
+			}
+			// shoot regular bullet
+			else
+			{
+				bullets[bullet_index].type = 0;
+				bullets[bullet_index].state = 0;
+				draw(bullets[bullet_index].pos.x, bullets[bullet_index].pos.y, alien_bullet_states[bullets[bullet_index].state], 8, 8, 0x00FF0000);
+			}
+
+			break;
+		}
+	}
+}
+
+void spawnUFO()
+{
+	if (ufo.exists) {
+		return;
+	}
+	ufo.exists = 1;
+
+	ufo.pos.y = 28;
+	if (ufo.ufo_direction == RIGHT) {
+		ufo.pos.x = 0;
+	} else {
+		ufo.pos.x = 610;
+	}
+	draw(ufo.pos.x, ufo.pos.y, ufoSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0xFF00000);
+
+}

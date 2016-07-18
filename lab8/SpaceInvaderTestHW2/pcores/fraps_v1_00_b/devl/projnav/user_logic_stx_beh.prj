@@ -1,0 +1,8 @@
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/proc_common_pkg.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/family_support.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/muxf_struct_f.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/dynshreg_f.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/cntr_incr_decr_addn_f.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/srl_fifo_rbu_f.vhd"
+vhdl proc_common_v3_00_a "../../../../../../../Xilinx/13.4/ISE_DS/EDK/hw/XilinxProcessorIPLib/pcores/proc_common_v3_00_a/hdl/vhdl/srl_fifo_f.vhd"
+vhdl fraps_v1_00_b "../../hdl/vhdl/user_logic.vhd"

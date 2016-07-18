@@ -1,0 +1,14 @@
+#Tue Dec 09 19:27:21 MST 2014
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:Stack-size=4096
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.sdata2=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.text=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.rodata=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.sbss2=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:Heap-size=1024
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.bss=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.sdata=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.sbss=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:Heap=MCB_DDR2_S0_AXI_BASEADDR
+eclipse.preferences.version=1
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:.data=MCB_DDR2_S0_AXI_BASEADDR
+com.xilinx.sdk.linkgen.prefs.hello_world_0\:Stack=MCB_DDR2_S0_AXI_BASEADDR

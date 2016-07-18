@@ -1,0 +1,616 @@
+/*
+ * Copyright (c) 2009 Xilinx, Inc.  All rights reserved.
+ *
+ * Xilinx, Inc.
+ * XILINX IS PROVIDING THIS DESIGN, CODE, OR INFORMATION "AS IS" AS A
+ * COURTESY TO YOU.  BY PROVIDING THIS DESIGN, CODE, OR INFORMATION AS
+ * ONE POSSIBLE   IMPLEMENTATION OF THIS FEATURE, APPLICATION OR
+ * STANDARD, XILINX IS MAKING NO REPRESENTATION THAT THIS IMPLEMENTATION
+ * IS FREE FROM ANY CLAIMS OF INFRINGEMENT, AND YOU ARE RESPONSIBLE
+ * FOR OBTAINING ANY RIGHTS YOU MAY REQUIRE FOR YOUR IMPLEMENTATION.
+ * XILINX EXPRESSLY DISCLAIMS ANY WARRANTY WHATSOEVER WITH RESPECT TO
+ * THE ADEQUACY OF THE IMPLEMENTATION, INCLUDING BUT NOT LIMITED TO
+ * ANY WARRANTIES OR REPRESENTATIONS THAT THIS IMPLEMENTATION IS FREE
+ * FROM CLAIMS OF INFRINGEMENT, IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ */
+
+/*
+ * helloworld.c: simple test application
+ */
+#include "xgpio.h"          // Provides access to PB GPIO driver.
+#include <stdio.h>
+#include <stdlib.h>
+#include "mb_interface.h"   // provides the microblaze interrupt enables, etc.
+#include "xintc_l.h"        // Provides handy macros for the interrupt controller.
+#include "platform.h"
+#include "xparameters.h"
+#include "xaxivdma.h"
+#include "xio.h"
+#include "xac97_l.h"
+#include "time.h"
+#include "unistd.h"
+#include "bitmask.h"
+#include "globals.h"
+#include "fraps.h"
+//#include "xac97_l.h"
+XGpio gpLED; // This is a handle for the LED GPIO block.
+XGpio gpPB; // This is a handle for the push-button GPIO block.
+XGpio gpSwitch;
+
+#define DEBUG
+void print(char *str);
+
+#define FRAME_BUFFER_0_ADDR 0xC1000000  // Starting location in DDR where we will store the images that we display.
+#define SW7 0x80
+#define SW6 0x40
+#define SW5 0x20
+#define SW4 0x10
+direction tank_direction = RIGHT;
+int move_alien_right = 1;
+u32 currentButtonState;
+u32 switch_value;
+short switch_7_flag = 0;
+short switch_6_flag = 0;
+short switch_5_flag = 0;
+short switch_4_flag = 0;
+short stop_timer = 0;
+u16 debounce = 0;
+u32 LEFTSBTNPRESS = 0x8;
+u32 MIDDLESBTNPRESS = 0x1;
+u32 RIGHTBTNPRESS = 0x2;
+u32 UPBTNPRESS = 0x10;
+u32 DOWNBTNPRESS = 0x4;
+u16 button_delay = 0;
+u32 update_screen_delay = 0;
+u32 second_delay, third_delay = 0;
+int alien_delay_speed;
+int random = 0;
+int * tankDeath_symbol;
+int tank_dead_count;
+int gameOver;
+int gameOverCount;
+int UFO_speed = 0;
+int bulletShotCount = 0;
+UFO ufo;
+unsigned int * framePointer;
+unsigned int screenshot_pointer[307200];
+unsigned int old_frame[307200];
+int remaining_aliens;
+int lives;
+int tank_shoot_soundData[];
+int tank_shoot_numberOfSamples;
+int silent_soundData[];
+int silent_numberOfSamples;
+int samples = 0;
+
+int tank_explosion_numberOfSamples;
+int tank_explosion_soundData[];
+
+int ufo_highpitch_soundData[];
+int ufo_highpitch_numberOfSamples;
+
+int * soundPointer;
+int  soundToPlay;
+int soundSamples;
+short tank_bullet_exists;
+int tank_bullet_sound_already_played;
+
+int invader1_soundData[];
+int invader1_numberOfSamples;
+
+int invaderkilled_soundData[];
+int invaderkilled_numberOfSamples;
+
+int gameover_soundData[];
+int gameover_numberOfSamples;
+
+int currentVolume=0;
+
+
+void timer_interrupt_handler() {
+	if (!gameOver)
+	{
+		UFO_speed++;
+		button_delay++;
+		update_screen_delay++;
+		if (tank_hit)
+		{
+			second_delay++;
+		}
+		if (ufoDie)
+		{
+			third_delay++;
+		}
+		if (button_delay == 2)
+		{
+			button_delay = 0;
+
+			if ((currentButtonState & LEFTSBTNPRESS) && !tank_hit)
+			{
+				//Move Tank Left
+				tank_direction = LEFT;
+				move_tank();
+			}
+
+			if ((currentButtonState & RIGHTBTNPRESS) && !tank_hit)
+			{
+				//Move Tank Right
+				tank_direction = RIGHT;
+				move_tank();
+			}
+
+			if ((currentButtonState & MIDDLESBTNPRESS) && !tank_hit) {
+				//Shoot Tank Bullet
+				shootTankBullet();
+				if (tank_bullet_exists && tank_bullet_sound_already_played)
+				{
+					playSound(1);
+					tank_bullet_sound_already_played=0;
+
+				}
+			}
+
+			if (currentButtonState & DOWNBTNPRESS) {
+
+				//spawnUFO();
+
+				//volume down
+				if ((2570-currentVolume-257) <= 7967 )  //7967  AC97_VOL_MIN
+				{
+					currentVolume-= (1 << 8) | 1;
+				}
+							XAC97_WriteReg(XPAR_AXI_AC97_0_BASEADDR, AC97_AuxOutVol,(2570-currentVolume) );  //0x1f1f
+
+			}
+
+			if(currentButtonState & UPBTNPRESS)
+			{
+				//init(framePointer);
+
+				//volume up
+				if ((2570-currentVolume+257) >= 257)  //AC97_VOL_MAX
+				{
+					currentVolume += (1 << 8) | 1;
+				}
+				XAC97_WriteReg(XPAR_AXI_AC97_0_BASEADDR, AC97_AuxOutVol, (2570-currentVolume)); //AC97_VOL_MID
+			}
+		}
+		if (UFO_speed == 3)
+		{
+			UFO_speed = 0;
+			moveUFO();
+		}
+
+		if (update_screen_delay % 128)
+		{
+			moveBullets();
+			random++;
+			if (random > 200)
+			{
+				shootAlienBullet();
+				random = 0;
+				random = rand() % 200;
+
+				bulletShotCount++;
+			}
+			if(bulletShotCount == 20)
+			{
+				spawnUFO();
+				bulletShotCount = 0;
+			}
+		}
+
+
+		if (update_screen_delay >= alien_delay_speed)
+		{
+			move_aliens();
+			update_screen_delay = 0;
+		}
+
+		if(third_delay == 45)
+		{
+			third_delay =0;
+			if (ufoDie)
+			{
+				//draw(ufo.pos.x, ufo.pos.y, blankAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT,0x0000000);
+				draw(ufo.pos.x, ufo.pos.y, blankAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0x0000000);
+				draw(ufo.pos.x+15, ufo.pos.y, blankAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0x0000000);
+				draw(ufo.pos.x+30, ufo.pos.y, blankAlienSymbol, ALIEN_WIDTH, ALIEN_HEIGHT, 0x0000000);
+
+
+				ufoDie = 0;
+				if(ufo.ufo_direction == RIGHT){
+					ufo.ufo_direction = LEFT;
+				}
+				else{
+					ufo.ufo_direction = RIGHT;
+				}
+				//add score stuff
+				}
+		}
+
+		if (second_delay == 10) {
+			second_delay = 0;
+
+			if (tank_hit) {
+				draw(tank.x, tank.y, blankAlienSymbol, TANK_WIDTH, TANK_HEIGHT,0x00000000); //clear
+				draw(tank.x, tank.y, tankDeath_symbol, TANK_WIDTH, TANK_HEIGHT,0x0000FF00); //draw 1
+				tank_dead_count++;
+			}
+			if (tankDeath_symbol == tankDeath_1) {
+				tankDeath_symbol = tankDeath_2;
+			} else {
+				tankDeath_symbol = tankDeath_1;
+			}
+			if (tank_dead_count == 15) {
+				tank_hit = 0;
+				tank_dead_count = 0;
+				lives--;
+				updateLives();
+
+				draw(tank.x, tank.y, blankAlienSymbol, TANK_WIDTH, TANK_HEIGHT,0x00000000); //clear
+				draw(tank.x, tank.y, tankSymbol, TANK_WIDTH, TANK_HEIGHT,0x000FF000);
+			}
+		}
+		if (lives == 0) {
+
+			int row, column;
+			for (row = 0; row < 480; row++) {
+				for (column = 0; column < 640; column++) {
+					framePointer[row * 640 + column] = 0x00000000;
+				}
+			}
+			//playSound(9);
+			play_game_over();
+		}
+		if (remaining_aliens ==0)
+		{
+			int row, column;
+			for (row = 0; row < 480; row++) {
+				for (column = 0; column < 640; column++) {
+					framePointer[row * 640 + column] = 0x00000000;
+				}
+			}
+			play_game_win();
+
+		}
+	}
+	else {
+		gameOverCount++;
+
+		if (gameOverCount == 500) {
+			gameOverCount = 0;
+			gameOver = 0;
+			init(framePointer);
+		}
+	}
+}
+
+void pb_interrupt_handler() {
+
+	// Clear the GPIO interrupt.
+	XGpio_InterruptGlobalDisable(&gpPB); // Turn off all PB interrupts for now.
+	currentButtonState = XGpio_DiscreteRead(&gpPB, 1); // Get the current state of the buttons.
+	// You need to do something here.
+
+	//xil_printf("%x\n",currentButtonState);
+
+
+	XGpio_InterruptClear(&gpPB, 0xFFFFFFFF); // Ack the PB interrupt.
+	XGpio_InterruptGlobalEnable(&gpPB); // Re-enable PB interrupts.
+}
+
+
+void playSound(int soundID)
+{
+	soundToPlay = soundID;
+
+	switch(soundID)
+	{
+	case(1):  // tank shoot
+		soundPointer = tank_shoot_soundData;
+		soundSamples = tank_shoot_numberOfSamples;
+		break;
+	case(2):   //tank die
+		soundPointer = tank_explosion_soundData;
+		soundSamples = tank_explosion_numberOfSamples;
+		break;
+	case(3):   //UFO
+		soundPointer = ufo_highpitch_soundData;
+		soundSamples = ufo_highpitch_numberOfSamples;
+		break;
+	case(4):   //alien1
+		soundPointer = invader1_soundData;
+		soundSamples = invader1_numberOfSamples;
+		break;
+	case(5):   //alien1
+		soundPointer = invader2_soundData;
+		soundSamples = invader2_numberOfSamples;
+		break;
+	case(6):   //alien1
+		soundPointer = invader3_soundData;
+		soundSamples = invader3_numberOfSamples;
+		break;
+	case(7):   //alien1
+		soundPointer = invader4_soundData;
+		soundSamples = invader4_numberOfSamples;
+		break;
+	case(8):
+		soundPointer = invaderkilled_soundData;
+		soundSamples = invaderkilled_numberOfSamples;
+		break;
+	case (9):
+		soundPointer = gameover_soundData;
+		soundSamples = gameover_numberOfSamples;
+		break;
+	default:
+		soundPointer = silent_soundData;
+		soundSamples = 100;
+		break;
+	}
+
+}
+
+void ac97_interrupt_handler()
+{
+	int i =0;
+	if (soundToPlay ==0)
+	{
+		for (i=0; i< 100; i++)
+		{
+			XAC97_mSetInFifoData(XPAR_AXI_AC97_0_BASEADDR,(silent_soundData[i] |(silent_soundData[i] <<16)) );
+		}
+	}
+	else
+	{
+		for (i=0; i< 100; i++)
+		{
+			if (samples >=soundSamples)
+			{
+				samples =0;
+				soundToPlay = 0;
+			}
+			XAC97_mSetInFifoData(XPAR_AXI_AC97_0_BASEADDR,(soundPointer[samples] | (soundPointer[samples] <<16) ));
+			samples++;
+		}
+
+	}
+}
+
+void switch_interrupt_handler()
+{
+	XGpio_InterruptGlobalDisable(&gpSwitch); // Turn off all PB interrupts for now.
+	//currentButtonState = XGpio_DiscreteRead(&gpPB, 1); // Get the current state of the buttons.
+	// You need to do something here.
+
+	u32 new_switch_value = XGpio_DiscreteRead(&gpSwitch, 1);
+
+	if(new_switch_value != switch_value)
+	{
+		switch_value = new_switch_value;
+		if(switch_value & SW7 && !switch_7_flag)
+		{
+			int j = 0;
+			for(j = 0; j < 10; j++)
+			{
+				screenshot_pointer[j] = 2;
+				xil_printf("%d: 0x%x\n", j+1, screenshot_pointer[j]);
+			}
+			takeScreenShot(framePointer, screenshot_pointer);
+			for(j = 0; j < 10; j++)
+			{
+				xil_printf("%d: 0x%x\n", j+1, screenshot_pointer[j]);
+			}
+			switch_7_flag = 1;
+			xil_printf("7");
+		}
+		else if(!(switch_value & SW7) && switch_7_flag)
+			switch_7_flag = 0;
+
+		if(switch_value & SW6 && !switch_6_flag)
+		{
+			takeScreenShot(framePointer, old_frame);
+			takeScreenShot(screenshot_pointer, framePointer);
+			//framePointer = screenshot_pointer;
+			switch_6_flag = 1;
+			stop_timer = 1;
+			xil_printf("6");
+		}
+		else if(!(switch_value & SW6) && switch_6_flag)
+		{
+			//framePointer = (unsigned int *)FRAME_BUFFER_0_ADDR
+			takeScreenShot(old_frame, framePointer);
+			redraw();
+			stop_timer = 0;
+			switch_6_flag = 0;
+		}
+
+		if(switch_value & SW5 && !switch_5_flag)
+		{
+			switch_5_flag = 1;
+			xil_printf("5");
+		}
+		else if(!(switch_value & SW5) && switch_5_flag)
+			switch_5_flag = 0;
+
+		if(switch_value & SW4 && !switch_4_flag)
+		{
+			switch_4_flag = 1;
+			xil_printf("4");
+		}
+		else if(!(switch_value & SW4) && switch_4_flag)
+			switch_4_flag = 0;
+	}
+
+	//xil_printf("%x\n",currentButtonState);
+
+	XGpio_InterruptClear(&gpSwitch, 0xFFFFFFFF); // Ack the PB interrupt.
+	XGpio_InterruptGlobalEnable(&gpSwitch); // Re-enable PB interrupts.
+}
+
+void interrupt_handler_dispatcher(void* ptr) {
+	int intc_status = XIntc_GetIntrStatus(XPAR_INTC_0_BASEADDR);
+	// Check the FIT interrupt first.
+	if (intc_status & XPAR_FIT_TIMER_0_INTERRUPT_MASK) {
+		XIntc_AckIntr(XPAR_INTC_0_BASEADDR, XPAR_FIT_TIMER_0_INTERRUPT_MASK);
+		if(!stop_timer)
+			timer_interrupt_handler();
+	}
+	// Check the push buttons.
+	if (intc_status & XPAR_PUSH_BUTTONS_5BITS_IP2INTC_IRPT_MASK) {
+		XIntc_AckIntr(XPAR_INTC_0_BASEADDR, XPAR_PUSH_BUTTONS_5BITS_IP2INTC_IRPT_MASK);
+		pb_interrupt_handler();
+	}
+
+	if (intc_status & XPAR_AXI_AC97_0_INTERRUPT_MASK) {
+		XIntc_AckIntr(XPAR_INTC_0_BASEADDR, XPAR_AXI_AC97_0_INTERRUPT_MASK);
+		ac97_interrupt_handler();
+	}
+
+	if(intc_status & XPAR_SWITCH_7BITS_IP2INTC_IRPT_MASK)
+	{
+		XIntc_AckIntr(XPAR_INTC_0_BASEADDR, XPAR_SWITCH_7BITS_IP2INTC_IRPT_MASK);
+		switch_interrupt_handler();
+	}
+}
+
+int main()
+{
+	srand(time(NULL));
+	//gameOver=0;
+	lives = 3;
+	init_platform(); // Necessary for all programs.
+	int Status; // Keep track of success/failure of system function calls.
+
+	//VDMA SETUP
+	XAxiVdma videoDMAController;
+	// There are 3 steps to initializing the vdma driver and IP.
+	// Step 1: lookup the memory structure that is used to access the vdma driver.
+	XAxiVdma_Config * VideoDMAConfig = XAxiVdma_LookupConfig(
+			XPAR_AXI_VDMA_0_DEVICE_ID);
+	// Step 2: Initialize the memory structure and the hardware.
+	if (XST_FAILURE == XAxiVdma_CfgInitialize(&videoDMAController,
+			VideoDMAConfig, XPAR_AXI_VDMA_0_BASEADDR)) {
+		xil_printf("VideoDMA Did not initialize.\r\n");
+	}
+	// Step 3: (optional) set the frame store number.
+	if (XST_FAILURE == XAxiVdma_SetFrmStore(&videoDMAController, 2,
+			XAXIVDMA_READ)) {
+		xil_printf("Set Frame Store Failed.");
+	}
+	// Initialization is complete at this point.
+
+	// Setup the frame counter. We want two read frames. We don't need any write frames but the
+	// function generates an error if you set the write frame count to 0. We set it to 2
+	// but ignore it because we don't need a write channel at all.
+	XAxiVdma_FrameCounter myFrameConfig;
+	myFrameConfig.ReadFrameCount = 2;
+	myFrameConfig.ReadDelayTimerCount = 10;
+	myFrameConfig.WriteFrameCount = 2;
+	myFrameConfig.WriteDelayTimerCount = 10;
+	Status = XAxiVdma_SetFrameCounter(&videoDMAController, &myFrameConfig);
+	if (Status != XST_SUCCESS) {
+		xil_printf("Set frame counter failed %d\r\n", Status);
+		if (Status == XST_VDMA_MISMATCH_ERROR)
+			xil_printf("DMA Mismatch Error\r\n");
+	}
+	// Now we tell the driver about the geometry of our frame buffer and a few other things.
+	// Our image is 480 x 640.
+	XAxiVdma_DmaSetup myFrameBuffer;
+	myFrameBuffer.VertSizeInput = 480; // 480 vertical pixels.
+	myFrameBuffer.HoriSizeInput = 640 * 4; // 640 horizontal (32-bit pixels).
+	myFrameBuffer.Stride = 640 * 4; // Dont' worry about the rest of the values.
+	myFrameBuffer.FrameDelay = 0;
+	myFrameBuffer.EnableCircularBuf = 1;
+	myFrameBuffer.EnableSync = 0;
+	myFrameBuffer.PointNum = 0;
+	myFrameBuffer.EnableFrameCounter = 0;
+	myFrameBuffer.FixedFrameStoreAddr = 0;
+	if (XST_FAILURE == XAxiVdma_DmaConfig(&videoDMAController, XAXIVDMA_READ,
+			&myFrameBuffer)) {
+		xil_printf("DMA Config Failed\r\n");
+	}
+	// We need to give the frame buffer pointers to the memory that it will use. This memory
+	// is where you will write your video data. The vdma IP/driver then streams it to the HDMI
+	// IP.
+	myFrameBuffer.FrameStoreStartAddr[0] = FRAME_BUFFER_0_ADDR;
+	myFrameBuffer.FrameStoreStartAddr[1] = FRAME_BUFFER_0_ADDR + 4 * 640 * 480;
+
+	if (XST_FAILURE == XAxiVdma_DmaSetBufferAddr(&videoDMAController,
+			XAXIVDMA_READ, myFrameBuffer.FrameStoreStartAddr)) {
+		xil_printf("DMA Set Address Failed Failed\r\n");
+	}
+	// Print a sanity message if you get this far.
+	xil_printf("Woohoo! I made it through initialization.\n\r");
+	// Now, let's get ready to start displaying some stuff on the screen.
+	// The variables framePointer and framePointer1 are just pointers to the base address
+	// of frame 0 and frame 1.
+
+	//unsigned int * framePointer = (unsigned int *) FRAME_BUFFER_0_ADDR;
+	framePointer = (unsigned int *) FRAME_BUFFER_0_ADDR;
+
+	// Just paint some large red, green, blue, and white squares in different
+	// positions of the image for each frame in the buffer (framePointer0 and framePointer1).
+
+	XAC97_HardReset(XPAR_AXI_AC97_0_BASEADDR);
+	XAC97_mSetControl(XPAR_AXI_AC97_0_BASEADDR, AC97_ENABLE_IN_FIFO_INTERRUPT);
+	XAC97_WriteReg(XPAR_AXI_AC97_0_BASEADDR, AC97_ExtendedAudioStat ,1);
+	XAC97_WriteReg(XPAR_AXI_AC97_0_BASEADDR,  AC97_AuxOutVol, AC97_VOL_MID);
+	XAC97_WriteReg(XPAR_AXI_AC97_0_BASEADDR, AC97_PCM_DAC_Rate ,AC97_PCM_RATE_11025_HZ);
+
+
+
+	init(framePointer);
+
+	// This tells the HDMI controller the resolution of your display (there must be a better way to do this).
+	XIo_Out32(XPAR_AXI_HDMI_0_BASEADDR, 640*480);
+
+	// Start the DMA for the read channel only.
+	if (XST_FAILURE == XAxiVdma_DmaStart(&videoDMAController, XAXIVDMA_READ)) {
+		xil_printf("DMA START FAILED\r\n");
+	}
+	int frameIndex = 0;
+	// We have two frames, let's park on frame 0. Use frameIndex to index them.
+	// Note that you have to start the DMA process before parking on a frame.
+	if (XST_FAILURE == XAxiVdma_StartParking(&videoDMAController, frameIndex,
+			XAXIVDMA_READ)) {
+		xil_printf("vdma parking failed\n\r");
+	}
+	// Oscillate between frame 0 and frame 1.
+
+
+	//GPIO SETUP
+	int success;
+	success = XGpio_Initialize(&gpPB, XPAR_PUSH_BUTTONS_5BITS_DEVICE_ID);
+	success = XGpio_Initialize(&gpSwitch, XPAR_SWITCH_7BITS_DEVICE_ID);
+	// Set the push button peripheral to be inputs.
+	XGpio_SetDataDirection(&gpPB, 1, 0x0000001F);
+	XGpio_SetDataDirection(&gpSwitch, 1, 0x0000001F);
+
+	// Enable the global GPIO interrupt for push buttons.
+	XGpio_InterruptGlobalEnable(&gpPB);
+	XGpio_InterruptGlobalEnable(&gpSwitch);
+
+	// Enable all interrupts in the push button peripheral.
+	XGpio_InterruptEnable(&gpPB, 0xFFFFFFFF);
+	XGpio_InterruptEnable(&gpSwitch, 0xFFFFFFFF);
+
+	microblaze_register_handler(interrupt_handler_dispatcher, NULL);
+	XIntc_EnableIntr(XPAR_INTC_0_BASEADDR,(XPAR_FIT_TIMER_0_INTERRUPT_MASK | XPAR_PUSH_BUTTONS_5BITS_IP2INTC_IRPT_MASK | XPAR_AXI_AC97_0_INTERRUPT_MASK | XPAR_SWITCH_7BITS_IP2INTC_IRPT_MASK));
+	XIntc_MasterEnable(XPAR_INTC_0_BASEADDR);
+	microblaze_enable_interrupts();
+
+	while (1)
+	{
+
+		if (XST_FAILURE == XAxiVdma_StartParking(&videoDMAController, 0,
+				XAXIVDMA_READ)) {
+			xil_printf("vdma parking failed\n\r");
+		}
+	}
+	cleanup_platform();
+
+	return 0;
+}
